@@ -42,12 +42,11 @@ void drawSeparatedStage(const RocketStage& stage, int stageNum) {
             // Parachute lines
             glColor4f(0.7f, 0.7f, 0.7f, 1.0f);
             glLineWidth(3.0f);
-            glBegin(GL_LINES);
-            glVertex2f(0, 170); glVertex2f(-20, 150);
-            glVertex2f(0, 170); glVertex2f(20, 150);
-            glVertex2f(0, 170); glVertex2f(0, 155);
-            glVertex2f(0, 170); glVertex2f(-15, 140);
-            glVertex2f(0, 170); glVertex2f(15, 140);
+            drawLineBresenhamSafe(0, 170, -20, 150);
+            drawLineBresenhamSafe(0, 170, 20, 150);
+            drawLineBresenhamSafe(0, 170, 0, 155);
+            drawLineBresenhamSafe(0, 170, -15, 140);
+            drawLineBresenhamSafe(0, 170, 15, 140);
             glEnd();
             
             glDisable(GL_BLEND);
@@ -416,19 +415,18 @@ void drawStars() {
     // Draw constellations
     glColor3f(0.8f, 0.8f, 1.0f);
     glLineWidth(1.0f);
-    glBegin(GL_LINES);
-    // Big Dipper
-    glVertex2f(100, 550); glVertex2f(120, 530);
-    glVertex2f(120, 530); glVertex2f(140, 540);
-    glVertex2f(140, 540); glVertex2f(160, 520);
-    glVertex2f(160, 520); glVertex2f(180, 510);
-    // Orion's Belt
-    glVertex2f(600, 500); glVertex2f(620, 490);
-    glVertex2f(620, 490); glVertex2f(640, 480);
-    glEnd();
+    // Big Dipper using Bresenham
+    drawLineBresenhamSafe(100, 550, 120, 530);
+    drawLineBresenhamSafe(120, 530, 140, 540);
+    drawLineBresenhamSafe(140, 540, 160, 520);
+    drawLineBresenhamSafe(160, 520, 180, 510);
+    // Orion's Belt using Bresenham
+    drawLineBresenhamSafe(600, 500, 620, 490);
+    drawLineBresenhamSafe(620, 490, 640, 480);
 }
 
 void drawSky() {
+    // Sky background using OpenGL (keep this as is since it's gradient)
     glBegin(GL_QUADS);
     if (dayTime < 0.25f) { // Night - DARKER for better contrast
         glColor3f(0.0f, 0.02f, 0.1f);
@@ -468,43 +466,50 @@ void drawSky() {
     glPushMatrix();
     float sunX = 700;
     float sunY = 500;
+    
     if (dayTime < 0.5f) { // Moon at night
         glColor3f(0.95f, 0.95f, 0.95f); // Brighter moon
         glTranslatef(sunX, sunY, 0);
-        glBegin(GL_POLYGON);
-        for(int i = 0; i < 360; i += 10) {
-            float angle = i * 3.14159f / 180.0f;
-            glVertex2f(20 * cos(angle), 20 * sin(angle));
-        }
-        glEnd();
-        // Moon craters
+        
+        // Draw moon using midpoint algorithm
+        drawFilledCircleMidpointSafe(0, 0, 20);
+        
+        // Moon craters using midpoint algorithm
         glColor3f(0.8f, 0.8f, 0.8f);
-        glBegin(GL_POLYGON);
-        for(int i = 0; i < 360; i += 10) {
-            float angle = i * 3.14159f / 180.0f;
-            glVertex2f(10 + 5 * cos(angle), 5 + 5 * sin(angle));
-        }
-        glEnd();
+        drawFilledCircleMidpointSafe(10, 5, 5);     // Right crater
+        drawFilledCircleMidpointSafe(-8, 8, 4);     // Left top crater
+        drawFilledCircleMidpointSafe(-5, -10, 6);   // Left bottom crater
+        drawFilledCircleMidpointSafe(12, -8, 3);    // Right bottom small crater
+        
     } else { // Sun during day
         glColor3f(1.0f, 0.95f, 0.1f); // Brighter sun
         glTranslatef(sunX, sunY, 0);
-        glBegin(GL_POLYGON);
-        for(int i = 0; i < 360; i += 10) {
-            float angle = i * 3.14159f / 180.0f;
-            glVertex2f(30 * cos(angle), 30 * sin(angle));
-        }
-        glEnd();
-        // Sun rays
+        
+        // Draw sun using midpoint algorithm
+        drawFilledCircleMidpointSafe(0, 0, 30);
+        
+        // Sun rays using triangle DDA algorithm
         glColor3f(1.0f, 0.9f, 0.2f);
         for(int i = 0; i < 360; i += 45) {
             float angle = i * 3.14159f / 180.0f;
-            glBegin(GL_TRIANGLES);
-            glVertex2f(25 * cos(angle), 25 * sin(angle));
-            glVertex2f(25 * cos(angle + 0.2), 25 * sin(angle + 0.2));
-            glVertex2f(50 * cos(angle + 0.1), 50 * sin(angle + 0.1));
-            glEnd();
+            float angle2 = (i + 20) * 3.14159f / 180.0f;
+            float angleMid = (i + 10) * 3.14159f / 180.0f;
+            
+            // Use drawFilledTriangleDDA for sun rays
+            drawFilledTriangleDDA(
+                25 * cos(angle), 25 * sin(angle),
+                25 * cos(angle2), 25 * sin(angle2),
+                50 * cos(angleMid), 50 * sin(angleMid)
+            );
         }
+        
+        // Add sun flare effect with smaller circles
+        glColor3f(1.0f, 1.0f, 0.3f);
+        drawFilledCircleMidpointSafe(15, 15, 8);   // Top right flare
+        drawFilledCircleMidpointSafe(-20, -15, 6); // Bottom left flare
+        drawFilledCircleMidpointSafe(-10, 20, 5);  // Top left small flare
     }
+    
     glPopMatrix();
 }
 
@@ -778,16 +783,10 @@ void drawLaunchComplex() {
     glLineWidth(6.0f);
     
     // LOX pipeline
-    glBegin(GL_LINES);
-    glVertex2f(loxX, 180);
-    glVertex2f(loxX - 40, 180);
-    glVertex2f(loxX - 40, 180);
-    glVertex2f(loxX - 40, 140);
-    glVertex2f(loxX - 40, 140);
-    glVertex2f(launchPadX - 60, 140);
-    glVertex2f(launchPadX - 60, 140);
-    glVertex2f(launchPadX - 60, launchPadY - 40);
-    glEnd();
+    drawLineBresenhamSafe(loxX, 180, loxX - 40, 180);
+    drawLineBresenhamSafe(loxX - 40, 180, loxX - 40, 140);
+    drawLineBresenhamSafe(loxX - 40, 140, launchPadX - 60, 140);
+    drawLineBresenhamSafe(launchPadX - 60, 140, launchPadX - 60, launchPadY - 40);
     
     // CH4 pipeline
     glBegin(GL_LINES);
